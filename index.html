@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Roguelike Chiptune Player</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #2a2a2a;
+            color: #fff;
+        }
+        button {
+            margin: 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #stop {
+            background: #f44336;
+        }
+        #stop:hover {
+            background: #da190b;
+        }
+    </style>
+</head>
+<body>
+    <h1>Roguelike Chiptune Demo</h1>
+    <div>
+        <button id="play">▶️ Play Theme</button>
+        <button id="stop">⏹️ Stop</button>
+    </div>
+
+    <script>
+        // Simple chiptune music generator using Web Audio API
+        class ChiptunePlayer {
+            constructor() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.mainVolume = this.audioContext.createGain();
+                this.mainVolume.connect(this.audioContext.destination);
+                this.mainVolume.gain.value = 0.3;
+                this.isPlaying = false;
+                this.tempo = 140; // BPM
+                
+                // Musical sequence - main melody
+                this.melody = [
+                    {note: 'C4', duration: 0.25},
+                    {note: 'E4', duration: 0.25},
+                    {note: 'G4', duration: 0.25},
+                    {note: 'C5', duration: 0.25},
+                    {note: 'B4', duration: 0.5},
+                    {note: 'G4', duration: 0.25},
+                    {note: 'E4', duration: 0.25},
+                    {note: 'A4', duration: 0.5},
+                    {note: 'F4', duration: 0.25},
+                    {note: 'D4', duration: 0.25},
+                ];
+                
+                // Bass line sequence
+                this.bassline = [
+                    {note: 'C2', duration: 1},
+                    {note: 'G2', duration: 1},
+                    {note: 'F2', duration: 1},
+                    {note: 'C2', duration: 1},
+                ];
+            }
+
+            noteToFrequency(note) {
+                const notes = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 
+                              'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11};
+                const octave = parseInt(note.slice(-1));
+                const noteIndex = notes[note.slice(0, -1)];
+                return 440 * Math.pow(2, (noteIndex - 9) / 12 + (octave - 4));
+            }
+
+            createOscillator(freq, type = 'square') {
+                const osc = this.audioContext.createOscillator();
+                const envelope = this.audioContext.createGain();
+                
+                osc.type = type;
+                osc.frequency.value = freq;
+                
+                osc.connect(envelope);
+                envelope.connect(this.mainVolume);
+                
+                return { oscillator: osc, envelope: envelope };
+            }
+
+            playNote(note, duration, time, type = 'square') {
+                const freq = this.noteToFrequency(note);
+                const { oscillator, envelope } = this.createOscillator(freq, type);
+                
+                envelope.gain.setValueAtTime(0, time);
+                envelope.gain.linearRampToValueAtTime(0.3, time + 0.01);
+                envelope.gain.linearRampToValueAtTime(0.2, time + duration * 0.3);
+                envelope.gain.linearRampToValueAtTime(0, time + duration);
+                
+                oscillator.start(time);
+                oscillator.stop(time + duration);
+            }
+
+            async play() {
+                if (this.isPlaying) return;
+                this.isPlaying = true;
+                
+                const secPerBeat = 60.0 / this.tempo;
+                let currentTime = this.audioContext.currentTime;
+                
+                while (this.isPlaying) {
+                    // Play melody
+                    for (let i = 0; i < this.melody.length; i++) {
+                        if (!this.isPlaying) break;
+                        const note = this.melody[i];
+                        this.playNote(note.note, note.duration * secPerBeat, currentTime, 'square');
+                        currentTime += note.duration * secPerBeat;
+                    }
+                    
+                    // Reset time for bassline
+                    currentTime = this.audioContext.currentTime;
+                    
+                    // Play bassline
+                    for (let i = 0; i < this.bassline.length; i++) {
+                        if (!this.isPlaying) break;
+                        const note = this.bassline[i];
+                        this.playNote(note.note, note.duration * secPerBeat, currentTime, 'triangle');
+                        currentTime += note.duration * secPerBeat;
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, secPerBeat * 4000));
+                }
+            }
+
+            stop() {
+                this.isPlaying = false;
+            }
+        }
+
+        const player = new ChiptunePlayer();
+
+        document.getElementById('play').onclick = () => {
+            player.play();
+        };
+
+        document.getElementById('stop').onclick = () => {
+            player.stop();
+        };
+    </script>
+</body>
+</html>
